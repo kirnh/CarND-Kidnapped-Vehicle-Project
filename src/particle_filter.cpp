@@ -59,6 +59,40 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 
+  // Looping over all the particles (i.e., num_particles number of times)
+	for (int i=0; i< num_particles; i++) {
+		Particle particle = particles[i];
+		double x = particle.x;
+		double y = particle.y;
+		double theta = particle.theta;
+
+    // Adding the predicted measurements obtained from previous velocity, yaw_rate and delta_t
+	  if (yaw_rate == 0) {
+			x = x + velocity*delta_t*cos(theta);
+			y = y + velocity*delta_t*sin(theta);
+			theta = theta;
+		}
+
+		else if (yaw_rate != 0) {
+			x = x + (velocity/yaw_rate)*(sin(theta+yaw_rate*delta_t)-sin(theta));
+			y = y + (velocity/yaw_rate)*(cos(theta)-cos(theta+yaw_rate*delta_t));
+			theta = theta + yaw_rate*delta_t;
+		} 
+
+		// Generating random seed to get the random Gaussian noise from the standard deviation values
+	  unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+	  default_random_engine generator (seed);
+
+	  // Adding random noise to introduce uncertainties when measuring state variables
+	  normal_distribution<double> x_distribution (x, std_pos[0]);
+	  normal_distribution<double> y_distribution (y, std_pos[1]);
+	  normal_distribution<double> theta_distribution (theta, std_pos[2]);
+
+	  // Generating random state variables after considering mean values and the standard deviations
+	  particle.x = x_distribution(generator);
+	  particle.y = y_distribution(generator);
+	  particle.theta = theta_distribution(generator);
+	}
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
