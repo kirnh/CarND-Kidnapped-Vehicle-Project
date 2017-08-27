@@ -236,4 +236,25 @@ inline bool read_landmark_data(std::string filename, std::vector<LandmarkObs>& o
 	return true;
 }
 
+// Helper function to transform observation points from car's coordinate system t maps's coordinate system
+std::vector<double> transform_obs(std::vector<double> observation, std::vector<double> predicted_position){
+	// vector to store the observation point in the map's coordinate system
+	std::vector<double> predicted_obs;
+	// vehicle's predicted state variables
+	double x_p = predicted_position[0];
+	double y_p = predicted_position[1];
+	double theta = predicted_position[2];
+	// observation variables
+	double x_o = observation[0];
+	double y_o = observation[1];
+	// Transformation function
+	double x_m = x_p + cos(theta)*x_o + (-sin(theta)*y_o);
+	double y_m = y_p + sin(theta)*x_o + cos(theta)*y_o;
+	// Add these to the return vector and return it
+	predicted_obs.push_back(x_m);
+	predicted_obs.push_back(y_m);
+
+	return predicted_obs;
+}
+
 #endif /* HELPER_FUNCTIONS_H_ */
