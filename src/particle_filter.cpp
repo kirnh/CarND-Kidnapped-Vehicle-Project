@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <iterator>
+#include <chrono>
 
 #include "particle_filter.h"
 
@@ -24,7 +25,32 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
+  
+  // Setting number of particles
+  num_particles = 100;
 
+  // Set the first positions of the particles based on estimates from GPS as mean and uncertainty of the GPS as Gaussian noise
+  // construct a trivial random generator engine from a time-based seed:
+  unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+  default_random_engine generator (seed);
+
+  normal_distribution<double> x_distribution (x, std[0]);
+  normal_distribution<double> y_distribution (y, std[1]);
+  normal_distribution<double> theta_distribution (theta, std[2]);
+
+  for (int i=0; i<num_particles; i++){
+  Particle particle;
+  particle.x = x_distribution(generator);
+  particle.y = y_distribution(generator);
+  particle.theta = theta_distribution(generator);
+  particle.weight = 1;
+
+  particles.push_back(particle);
+
+  }
+
+  // Set the flag to indicate the initialization
+  is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
