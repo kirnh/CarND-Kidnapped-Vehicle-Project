@@ -59,6 +59,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 
+	// Instantiating a new vector to hold the predicted particle states
+	vector<Particle> predicted_particles;
+	
   // Looping over all the particles (i.e., num_particles number of times)
 	for (int i=0; i< num_particles; i++) {
 		Particle particle = particles[i];
@@ -92,6 +95,12 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	  particle.x = x_distribution(generator);
 	  particle.y = y_distribution(generator);
 	  particle.theta = theta_distribution(generator);
+
+	  // Push the predicted_particle to the new vector holding all predicted particle states
+	  predicted_particles.push_back(particle);
+
+	  // Assign this new vector to represent the particles vector
+	  particles = predicted_particles; 
 	}
 }
 
