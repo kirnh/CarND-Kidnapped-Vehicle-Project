@@ -28,7 +28,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
   
   // Setting number of particles
-  num_particles = 100;
+  num_particles = 1;
 
   // Set the first positions of the particles based on estimates from GPS as mean and uncertainty of the GPS as Gaussian noise
   // construct a trivial random generator engine from a time-based seed:
@@ -237,6 +237,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
     // Update the weight of the particle
     particle.weight = weight;
+
+    // Update the weights vector of the particle filter as well
+    weights.push_back(weight);
 	}
 }
 
@@ -244,7 +247,23 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+	
+  // Discrete distribution of particle weights used to resample
+  random_device rd;
+  mt19937 gen(rd());
+  discrete_distribution<> d(weights.begin(), weights.end());
 
+  // A vector of particles to store the new particels while resampling is undergoing
+  vector<Particle> particles_new;
+  // Looping over num_particles number of times and resampling from particles vector according to weights
+  // from the weights vector 
+  for(int n=0; n<num_particles; n++) {
+      Particle particle_resampled = particles[d(gen)];
+      particles_new.push_back(particle_resampled);
+  }
+
+  // The new resampled particles now represents the particles
+  particles = particles_new;
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
