@@ -16,13 +16,14 @@
 #include <iterator>
 #include <chrono>
 
+#include "map.h"
 #include "particle_filter.h"
 
 using namespace std;
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
-	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
+	//  x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
   
@@ -61,7 +62,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 	// Instantiating a new vector to hold the predicted particle states
 	vector<Particle> predicted_particles;
-	
+
   // Looping over all the particles (i.e., num_particles number of times)
 	for (int i=0; i< num_particles; i++) {
 		Particle particle = particles[i];
@@ -109,7 +110,26 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
-
+	
+  // Looping over all the observations
+  for (int i=0; i<observations.size(); i++){
+  	LandmarkObs observation = observations[i];
+  	// Least distance
+  	double least_distance = 9999999999999;
+  	// Looping over all the predicted landmark positions
+  	for (int j=0; j<predicted.size(); j++){
+  		LandmarkObs landmark = predicted[j]; 
+  		// Compare the observation to the predicted landmark and associate it with the closest one.
+  		// Using dist(x1, y1, x2, y2) function from helper_functions.h to get the Euclidean distance 
+  		// between the predicted landmark and the observation measurements
+  		double distance = dist(landmark.x, landmark.y, observation.x, observation.y);
+  		// store the state if its the least distance
+  		if (distance < least_distance){
+  			least_distance = distance;
+  			observation.id = j;
+  		}
+  	}
+  }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -124,6 +144,100 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+
+	// standard deviations in x and y direction
+	double sig_x = std_landmark[0];
+	double sig_y = std_landmark[1];
+
+  // Looping through all the particles
+	for (int i=0; i<num_particles; i++){
+		// current Particle in the loop
+		Particle particle = particles[i];
+		// Ground truth of current particle's state in Map's coordinate system
+		ground_truth predicted;
+		predicted.x = particle.x;
+		predicted.y = particle.y;
+		predicted.theta = particle.theta;
+		
+		// Vector to store the observation in map's coordinate system after transformation from car's system
+		vector<LandmarkObs> observations_m;
+		// Converting all the observations in car's coordinate system to the map's coordinate system
+    for (int j=0; j<observations.size(); j++){
+    	LandmarkObs observation = observations[j];
+    	LandmarkObs observation_m;
+
+      // observation variables
+			double x_o = observation.x;
+			double y_o = observation.y;
+			// predicted variables
+			double x_p = predicted.x;
+			double y_p = predicted.y;
+			double theta = predicted.theta;	
+			// Transformation function
+			double x_m = x_p + cos(theta)*x_o + (-sin(theta)*y_o);
+			double y_m = y_p + sin(theta)*x_o + cos(theta)*y_o;
+			// Observation in map's coordinate system
+			observation_m.x = x_m;
+			observation_m.y = y_m;
+
+    	// Push this observation to the vector storing all obs in map's system
+    	observations_m.push_back(observation_m);
+    }
+    
+    // Using the predicted state variables and the Map to calculate a vector of 
+    // predicted landmark positions after translation.
+    // Landmarks list from the map
+    vector<Map::single_landmark_s> landmark_list = map_landmarks.landmark_list;
+    // Predicted landmark list from the predicted state variables
+    vector<LandmarkObs> predicted_landmark_list;
+   	// Looping over the landmark list to get the predicted landmark list
+   	for (int j=0; j<landmark_list.size(); j++){
+   		// current landmark from map
+   		Map::single_landmark_s landmark = landmark_list[j];
+      double landmark_x = landmark.x_f;
+      double landmark_y = landmark.y_f;
+      int landmark_id = landmark.id_i;
+      // Predicted landmark observation
+      LandmarkObs predicted_landmark;
+      predicted_landmark.x = predicted.x + landmark_x;
+      predicted_landmark.y = predicted.y + landmark_y;
+      predicted_landmark.id = landmark_id;
+      // Push this to the list storing all the predicted landmark obs
+      predicted_landmark_list.push_back(predicted_landmark);
+   	}
+
+    // Data association of this measured observation (in map's coordinate system) with the 
+    // predicted landmark positions (obtained from the current state of the particle and the map)
+    dataAssociation(predicted_landmark_list, observations_m);
+
+    // Update weights for each particle depending on P(Z|X) where Z is the observation and X
+    // is the particle's position
+    // Looping through all the observations and capturing its multivariate gaussian probability
+    double weight = 1; 
+    for (int j=0; j<observations_m.size(); j++){
+    	// current observation
+    	LandmarkObs observation = observations[j];
+    	int landmark_id = observation.id;
+    	// associated predicted landmark
+    	LandmarkObs predicted_landmark = predicted_landmark_list[landmark_id];
+    	// get variables for better readability
+    	double x_obs = observation.x;
+    	double y_obs = observation.y;
+    	double mu_x = predicted_landmark.x;
+    	double mu_y =  predicted_landmark.y;
+      // calculate normalization term
+			double gauss_norm= (1/(2 * M_PI * sig_x * sig_y));
+			// calculate exponent
+			double exponent = (pow(x_obs - mu_x,2))/(2 * sig_x * sig_x) + (pow(y_obs - mu_y,2))/(2 * sig_y * sig_y);
+      // calculate probability using normalization terms and exponent
+      double probability = gauss_norm * exp(-exponent);
+      // the final weight is the product of the probabilities of all the observations
+      weight = weight * probability;
+    }
+
+    // Update the weight of the particle
+    particle.weight = weight;
+	}
 }
 
 void ParticleFilter::resample() {
