@@ -40,14 +40,13 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   normal_distribution<double> theta_distribution (theta, std[2]);
 
   for (int i=0; i<num_particles; i++){
-  Particle particle;
-  particle.x = x_distribution(generator);
-  particle.y = y_distribution(generator);
-  particle.theta = theta_distribution(generator);
-  particle.weight = 1;
+	  Particle particle;
+	  particle.x = x_distribution(generator);
+	  particle.y = y_distribution(generator);
+	  particle.theta = theta_distribution(generator);
+	  particle.weight = 1;
 
-  particles.push_back(particle);
-
+	  particles.push_back(particle);
   }
 
   // Set the flag to indicate the initialization
@@ -99,10 +98,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 	  // Push the predicted_particle to the new vector holding all predicted particle states
 	  predicted_particles.push_back(particle);
-
-	  // Assign this new vector to represent the particles vector
-	  particles = predicted_particles; 
 	}
+
+  // Assign this new vector to represent the particles vector
+  particles = predicted_particles; 
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
@@ -134,6 +133,11 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
   	updated_observations.push_back(observation);
   }
   observations = updated_observations;
+  for(int i=0; i<observations.size(); i++){
+  	LandmarkObs observation = observations[i];
+  	int landmark_id = observation.id;
+  	LandmarkObs landmark = predicted[landmark_id];
+  }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -149,6 +153,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
 
+  // Vector to hold the particles with updated weights
+  vector<Particle> updated_particles;
+
 	// standard deviations in x and y direction
 	double sig_x = std_landmark[0];
 	double sig_y = std_landmark[1];
@@ -157,61 +164,43 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	for (int i=0; i<num_particles; i++){
 		// current Particle in the loop
 		Particle particle = particles[i];
-		// Ground truth of current particle's state in Map's coordinate system
-		ground_truth predicted;
-		predicted.x = particle.x;
-		predicted.y = particle.y;
-		predicted.theta = particle.theta;
-		
 		// Vector to store the observation in map's coordinate system after transformation from car's system
 		vector<LandmarkObs> observations_m;
 		// Converting all the observations in car's coordinate system to the map's coordinate system
     for (int j=0; j<observations.size(); j++){
     	LandmarkObs observation = observations[j];
+    	// variable to store observation in map's coord system
     	LandmarkObs observation_m;
-
       // observation variables
 			double x_o = observation.x;
 			double y_o = observation.y;
-			// predicted variables
-			double x_p = predicted.x;
-			double y_p = predicted.y;
-			double theta = predicted.theta;	
+			// particle's state variables
+			double x_p = particle.x;
+			double y_p = particle.y;
+			double theta = particle.theta;	
 			// Transformation function
 			double x_m = x_p + cos(theta)*x_o + (-sin(theta)*y_o);
 			double y_m = y_p + sin(theta)*x_o + cos(theta)*y_o;
 			// Observation in map's coordinate system
 			observation_m.x = x_m;
 			observation_m.y = y_m;
-
     	// Push this observation to the vector storing all obs in map's system
     	observations_m.push_back(observation_m);
     }
-    
-    // Using the predicted state variables and the Map to calculate a vector of 
-    // predicted landmark positions after translation.
-    // Landmarks list from the map
-    vector<Map::single_landmark_s> landmark_list = map_landmarks.landmark_list;
-    // Predicted landmark list from the predicted state variables
-    vector<LandmarkObs> predicted_landmark_list;
-   	// Looping over the landmark list to get the predicted landmark list
-   	for (int j=0; j<landmark_list.size(); j++){
-   		// current landmark from map
-   		Map::single_landmark_s landmark = landmark_list[j];
-      double landmark_x = landmark.x_f;
-      double landmark_y = landmark.y_f;
-      int landmark_id = landmark.id_i;
-      // Predicted landmark observation
-      LandmarkObs predicted_landmark;
-      predicted_landmark.x = predicted.x + landmark_x;
-      predicted_landmark.y = predicted.y + landmark_y;
-      predicted_landmark.id = landmark_id;
-      // Push this to the list storing all the predicted landmark obs
-      predicted_landmark_list.push_back(predicted_landmark);
-   	}
 
-    // Data association of this measured observation (in map's coordinate system) with the 
-    // predicted landmark positions (obtained from the current state of the particle and the map)
+    // predicted_landmark_list obtained from the map
+    vector<LandmarkObs> predicted_landmark_list;
+    vector<Map::single_landmark_s> landmark_list = map_landmarks.landmark_list;
+    for(int i=0; i<landmark_list.size(); i++){
+    	Map::single_landmark_s landmark = landmark_list[i];
+    	LandmarkObs predicted_landmark;
+    	predicted_landmark.x = landmark.x_f;
+    	predicted_landmark.y = landmark.y_f;
+    	predicted_landmark.id = landmark.id_i;
+    	predicted_landmark_list.push_back(predicted_landmark);
+    }
+    // Data association of this observation (in map's coordinate system) with the 
+    // measured landmark positions (obtained from the map)
     dataAssociation(predicted_landmark_list, observations_m);
 
     // Update weights for each particle depending on P(Z|X) where Z is the observation and X
@@ -220,7 +209,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     double weight = 1; 
     for (int j=0; j<observations_m.size(); j++){
     	// current observation
-    	LandmarkObs observation = observations[j];
+    	LandmarkObs observation = observations_m[j];
     	int landmark_id = observation.id;
     	// associated predicted landmark
     	LandmarkObs predicted_landmark = predicted_landmark_list[landmark_id];
@@ -241,10 +230,11 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
     // Update the weight of the particle
     particle.weight = weight;
-
-    // Update the weights vector of the particle filter as well
-    weights.push_back(weight);
+    // Push this particle to the updated_particles vector
+    updated_particles.push_back(particle);
 	}
+	// updated_particles now represents the particles vector
+	particles = updated_particles;
 }
 
 void ParticleFilter::resample() {
