@@ -30,27 +30,34 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   // Setting number of particles
   num_particles = 1;
 
-  // Set the first positions of the particles based on estimates from GPS as mean and uncertainty of the GPS as Gaussian noise
-  // construct a trivial random generator engine from a time-based seed:
-  unsigned seed = chrono::system_clock::now().time_since_epoch().count();
-  default_random_engine generator (seed);
+  // init particles vector
+  vector<Particle> init_particles;
 
+  // Set the first positions of the particles based on estimates from GPS as mean and uncertainty of the GPS as Gaussian noise.
+  // The Gaussian distributions
   normal_distribution<double> x_distribution (x, std[0]);
   normal_distribution<double> y_distribution (y, std[1]);
   normal_distribution<double> theta_distribution (theta, std[2]);
 
   for (int i=0; i<num_particles; i++){
+	  // construct a trivial random generator engine from a time-based seed:
+	  unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+	  default_random_engine generator (seed);
+
 	  Particle particle;
 	  particle.x = x_distribution(generator);
 	  particle.y = y_distribution(generator);
 	  particle.theta = theta_distribution(generator);
 	  particle.weight = 1;
 
-	  particles.push_back(particle);
+	  init_particles.push_back(particle);
+	  cout << "INITIALIZATION:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl << endl;
   }
 
   // Set the flag to indicate the initialization
   is_initialized = true;
+  // Set the init_particles as particles
+  particles = init_particles;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -86,18 +93,20 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	  unsigned seed = chrono::system_clock::now().time_since_epoch().count();
 	  default_random_engine generator (seed);
 
-	  // Adding random noise to introduce uncertainties when measuring state variables
+	  // Adding random gaussian noise to introduce uncertainties in motion
 	  normal_distribution<double> x_distribution (x, std_pos[0]);
 	  normal_distribution<double> y_distribution (y, std_pos[1]);
 	  normal_distribution<double> theta_distribution (theta, std_pos[2]);
 
-	  // Generating random state variables after considering mean values and the standard deviations
+	  // Generating random state variables from the normal distributions
 	  particle.x = x_distribution(generator);
 	  particle.y = y_distribution(generator);
 	  particle.theta = theta_distribution(generator);
 
 	  // Push the predicted_particle to the new vector holding all predicted particle states
 	  predicted_particles.push_back(particle);
+	  cout << "PREDICTION:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl << endl;
+
 	}
 
   // Assign this new vector to represent the particles vector
@@ -110,8 +119,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 	
-	// New vector to hold the updated observations list
-	vector<LandmarkObs> updated_observations;
+	// New vector to hold the associated observations list
+	vector<LandmarkObs> associated_observations;
   // Looping over all the observations
   for (int i=0; i<observations.size(); i++){
   	LandmarkObs observation = observations[i];
@@ -130,13 +139,16 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
   			observation.id = j;
   		}
   	}
-  	updated_observations.push_back(observation);
+  	associated_observations.push_back(observation);
   }
-  observations = updated_observations;
+
+  observations = associated_observations;
+
   for(int i=0; i<observations.size(); i++){
   	LandmarkObs observation = observations[i];
   	int landmark_id = observation.id;
   	LandmarkObs landmark = predicted[landmark_id];
+    cout << "ASSOCIATION:: observation -- " << observation.x << " " << observation.y << " :: landmark -- " << landmark.x << " " << landmark.y << endl << endl;
   }
 }
 
@@ -155,6 +167,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
   // Vector to hold the particles with updated weights
   vector<Particle> updated_particles;
+  // Vector to hold the updated weights
+  vector<double> updated_weights;
 
 	// standard deviations in x and y direction
 	double sig_x = std_landmark[0];
@@ -164,6 +178,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	for (int i=0; i<num_particles; i++){
 		// current Particle in the loop
 		Particle particle = particles[i];
+
 		// Vector to store the observation in map's coordinate system after transformation from car's system
 		vector<LandmarkObs> observations_m;
 		// Converting all the observations in car's coordinate system to the map's coordinate system
@@ -199,14 +214,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     	predicted_landmark.id = landmark.id_i;
     	predicted_landmark_list.push_back(predicted_landmark);
     }
-    // Data association of this observation (in map's coordinate system) with the 
+    // Data association of observations (in map's coordinate system) with the 
     // measured landmark positions (obtained from the map)
     dataAssociation(predicted_landmark_list, observations_m);
 
     // Update weights for each particle depending on P(Z|X) where Z is the observation and X
     // is the particle's position
     // Looping through all the observations and capturing its multivariate gaussian probability
-    double weight = 1; 
+    double weight = 1.0; 
     for (int j=0; j<observations_m.size(); j++){
     	// current observation
     	LandmarkObs observation = observations_m[j];
@@ -218,6 +233,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     	double y_obs = observation.y;
     	double mu_x = predicted_landmark.x;
     	double mu_y =  predicted_landmark.y;
+    	cout << "UPDATEWEIGHTS observation -- " << observation.x << " " << observation.y << " :: landmark -- " << predicted_landmark.x << " " << predicted_landmark.y << endl << endl;
       // calculate normalization term
 			double gauss_norm= (1/(2 * M_PI * sig_x * sig_y));
 			// calculate exponent
@@ -232,9 +248,15 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     particle.weight = weight;
     // Push this particle to the updated_particles vector
     updated_particles.push_back(particle);
+	  cout << "UPDATEWEIGHTS:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl << endl;
+
+    // Also push the weight to the weights vector
+    updated_weights.push_back(weight);
 	}
 	// updated_particles now represents the particles vector
 	particles = updated_particles;
+	// updated_weights now represents the weights vector
+	weights = updated_weights;
 }
 
 void ParticleFilter::resample() {
@@ -258,6 +280,10 @@ void ParticleFilter::resample() {
 
   // The new resampled particles now represents the particles
   particles = particles_new;
+  for(int i=0; i<num_particles; i++){
+  	Particle p = particles[i];
+    cout << "RESAMPLE:: particle -- " << p.x << " " << p.y << " " << p.theta << " " << p.weight << endl << endl;  	
+  }
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
