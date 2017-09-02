@@ -26,9 +26,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//  x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-  
+  cout << endl;
   // Setting number of particles
-  num_particles = 1;
+  num_particles = 100;
 
   // init particles vector
   vector<Particle> init_particles;
@@ -51,7 +51,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	  particle.weight = 1;
 
 	  init_particles.push_back(particle);
-	  cout << "INITIALIZATION:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl << endl;
+	  cout << "INITIALIZATION:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl;
   }
 
   // Set the flag to indicate the initialization
@@ -65,7 +65,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
-
+  cout << endl;
 	// Instantiating a new vector to hold the predicted particle states
 	vector<Particle> predicted_particles;
 
@@ -105,7 +105,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 	  // Push the predicted_particle to the new vector holding all predicted particle states
 	  predicted_particles.push_back(particle);
-	  cout << "PREDICTION:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl << endl;
+	  cout << "PREDICTION:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl;
 
 	}
 
@@ -118,7 +118,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
-	
+	cout << endl;
 	// New vector to hold the associated observations list
 	vector<LandmarkObs> associated_observations;
   // Looping over all the observations
@@ -148,7 +148,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
   	LandmarkObs observation = observations[i];
   	int landmark_id = observation.id;
   	LandmarkObs landmark = predicted[landmark_id];
-    cout << "ASSOCIATION:: observation -- " << observation.x << " " << observation.y << " :: landmark -- " << landmark.x << " " << landmark.y << endl << endl;
+    cout << "ASSOCIATION:: observation -- " << observation.x << " " << observation.y << " :: landmark -- " << landmark.x << " " << landmark.y << endl;
   }
 }
 
@@ -222,6 +222,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     // is the particle's position
     // Looping through all the observations and capturing its multivariate gaussian probability
     double weight = 1.0; 
+    cout << endl;
     for (int j=0; j<observations_m.size(); j++){
     	// current observation
     	LandmarkObs observation = observations_m[j];
@@ -233,7 +234,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     	double y_obs = observation.y;
     	double mu_x = predicted_landmark.x;
     	double mu_y =  predicted_landmark.y;
-    	cout << "UPDATEWEIGHTS observation -- " << observation.x << " " << observation.y << " :: landmark -- " << predicted_landmark.x << " " << predicted_landmark.y << endl << endl;
+    	cout << "UPDATEWEIGHTS:: observation -- " << observation.x << " " << observation.y << " :: landmark -- " << predicted_landmark.x << " " << predicted_landmark.y << endl;
       // calculate normalization term
 			double gauss_norm= (1/(2 * M_PI * sig_x * sig_y));
 			// calculate exponent
@@ -242,13 +243,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       double probability = gauss_norm * exp(-exponent);
       // the final weight is the product of the probabilities of all the observations
       weight = weight * probability;
+      cout << "UPDATEWEIGHTS:: probability -- " << probability << endl; 
     }
 
     // Update the weight of the particle
     particle.weight = weight;
     // Push this particle to the updated_particles vector
     updated_particles.push_back(particle);
-	  cout << "UPDATEWEIGHTS:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl << endl;
+	  cout << "UPDATEWEIGHTS:: particle -- " << particle.x << " " << particle.y << " " << particle.theta << " " << particle.weight << endl;
 
     // Also push the weight to the weights vector
     updated_weights.push_back(weight);
@@ -263,7 +265,7 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
-	
+	cout << endl;
   // Discrete distribution of particle weights used to resample
   random_device rd;
   mt19937 gen(rd());
@@ -282,7 +284,7 @@ void ParticleFilter::resample() {
   particles = particles_new;
   for(int i=0; i<num_particles; i++){
   	Particle p = particles[i];
-    cout << "RESAMPLE:: particle -- " << p.x << " " << p.y << " " << p.theta << " " << p.weight << endl << endl;  	
+    cout << "RESAMPLE:: particle -- " << p.x << " " << p.y << " " << p.theta << " " << p.weight << endl;  	
   }
 }
 
